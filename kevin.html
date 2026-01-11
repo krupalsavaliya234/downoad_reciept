@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kailash Industries - Drive Sync</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    
+    <style>
+        :root {
+            --brand-blue: #2d89ba;
+            --text-dark: #333;
+        }
+
+        body {
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+        }
+
+        /* Toolbar & Drive Status */
+        .toolbar {
+            width: 210mm;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+            background: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .drive-status {
+            margin-right: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: bold;
+            color: var(--brand-blue);
+        }
+
+        #sync-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff4757;
+        }
+        #sync-indicator.active { background: #2ed573; }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            transition: 0.2s;
+        }
+        .btn-add { background: #f1f2f6; color: var(--brand-blue); border: 1px solid var(--brand-blue); }
+        .btn-download { background: var(--brand-blue); color: white; }
+        .btn-auth { background: #4285F4; color: white; }
+
+        /* Invoice Sheet */
+        #invoice-page {
+            background: white;
+            width: 210mm;
+            min-height: 297mm;
+            padding: 40px;
+            box-sizing: border-box;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .header { text-align: center; margin-bottom: 25px; }
+        .company-title { font-size: 42px; font-weight: 900; color: var(--brand-blue); margin: 0; text-transform: uppercase; }
+        .subtitle { font-size: 18px; color: var(--brand-blue); font-weight: bold; margin-top: -5px; }
+        .address { font-size: 13px; color: var(--brand-blue); margin-top: 10px; line-height: 1.4; }
+
+        .meta-row { display: flex; justify-content: space-between; margin-top: 20px; color: var(--brand-blue); font-weight: bold; }
+        .ms-row { margin-top: 15px; border-bottom: 1.5px solid var(--brand-blue); padding-bottom: 5px; color: var(--brand-blue); font-weight: bold; }
+        
+        input { border: none; outline: none; background: transparent; font-family: inherit; }
+        .input-underline { border-bottom: 1px solid #ccc; padding: 2px 5px; }
+
+        /* Table Design */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; border: 1.5px solid var(--brand-blue); }
+        th { background-color: var(--brand-blue); color: white; padding: 10px 5px; font-size: 14px; border: 1px solid white; }
+        td { border: 1px solid var(--brand-blue); height: 32px; vertical-align: middle; }
+        .table-input { width: 100%; height: 100%; padding: 5px; box-sizing: border-box; text-align: center; font-size: 14px; }
+        .text-left { text-align: left !important; }
+
+        /* Compact Total Row */
+        .total-row { height: 35px; }
+        .total-row td { border: none; border-left: 1.5px solid var(--brand-blue); border-bottom: 1.5px solid var(--brand-blue); }
+        .total-label-cell { background-color: var(--brand-blue); color: white; text-align: right; padding-right: 15px; font-weight: bold; }
+        .total-amount-cell { background-color: var(--brand-blue); width: 120px; border-right: 1.5px solid var(--brand-blue) !important; }
+        .total-input { color: white; font-weight: bold; width: 100%; text-align: center; font-size: 15px; }
+
+        .footer { margin-top: 60px; display: flex; justify-content: space-between; color: var(--brand-blue); font-weight: bold; }
+        .sig-box { width: 180px; text-align: center; }
+        .sig-line { border-top: 1px solid var(--brand-blue); margin-bottom: 5px; }
+
+        /* UI Helpers */
+        .row-action { position: absolute; left: -30px; }
+        .btn-rm { background: #ff4757; color: white; border: none; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; }
+        .no-export { display: none !important; }
+
+        @media print {
+            .toolbar, .btn-rm { display: none !important; }
+            #invoice-page { box-shadow: none; padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="toolbar">
+        <div class="drive-status">
+            <div id="sync-indicator"></div>
+            <span id="status-text">Drive Disconnected</span>
+            <button class="btn btn-auth" id="auth-btn" onclick="handleAuthClick()">Connect Google Drive</button>
+        </div>
+        <button class="btn btn-add" onclick="addRow()">+ Add Row</button>
+        <button class="btn btn-download" onclick="exportAndSync()">Download & Sync</button>
+    </div>
+
+    <div id="invoice-page">
+        <div class="header">
+            <h1 class="company-title">Kailash Industries</h1>
+            <div class="subtitle">(CNC Job Work)</div>
+            <div class="address">
+                Parmeshwar Industries Area, Seri No.5, Atika Dhebar Road (South)<br>
+                Rajkot (Guj.) India Mo. 97233 51323
+            </div>
+        </div>
+
+        <div class="meta-row">
+            <div>Bill No.: <input type="text" id="billNo" class="input-underline" value="151" style="width: 80px;"></div>
+            <div>Date: <input type="date" id="dateInput" class="input-underline"></div>
+        </div>
+
+        <div class="ms-row">
+            M/s.: <input type="text" id="customerName" placeholder="Enter Customer Name" style="width: 80%; font-size: 16px;">
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th width="40">No</th>
+                    <th>Particulars</th>
+                    <th width="70">Qty.</th>
+                    <th width="90">Chal.no.</th>
+                    <th width="90">Rate</th>
+                    <th width="120">Amount</th>
+                </tr>
+            </thead>
+            <tbody id="invoice-body">
+                <tr>
+                    <td><input type="text" class="table-input" value="1"></td>
+                    <td style="position: relative;">
+                        <div class="row-action"><button class="btn-rm" onclick="this.closest('tr').remove(); calculate();">×</button></div>
+                        <input type="text" class="table-input text-left">
+                    </td>
+                    <td><input type="number" class="table-input qty" oninput="calculate()"></td>
+                    <td><input type="text" class="table-input"></td>
+                    <td><input type="number" class="table-input rate" oninput="calculate()"></td>
+                    <td><input type="text" class="table-input amount" readonly></td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr class="total-row">
+                    <td colspan="4"></td>
+                    <td class="total-label-cell">Total</td>
+                    <td class="total-amount-cell">
+                        <input type="text" id="grand-total" class="total-input" readonly value="0.00">
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="footer">
+            <div class="sig-box">
+                <div class="sig-line"></div>
+                Receiver's Sign
+            </div>
+            <div class="sig-box">
+                For : Kailash Industries
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- YOUR CONFIGURATION ---
+        const CLIENT_ID = '705449901978-hlvlnas11lmoub50gmihm61aehcjvrgl.apps.googleusercontent.com';
+        const API_KEY = 'AIzaSyCKEFyuO3M1pPUmLj89TTM2fnTjN4_WsRY';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+
+        let tokenClient;
+        let accessToken = null;
+
+        // --- GOOGLE DRIVE LOGIC ---
+        function gapiStart() {
+            gapi.load('client', async () => {
+                await gapi.client.init({ 
+                    apiKey: API_KEY, 
+                    discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] 
+                });
+            });
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: (resp) => {
+                    if (resp.error !== undefined) throw (resp);
+                    accessToken = resp.access_token;
+                    document.getElementById('sync-indicator').classList.add('active');
+                    document.getElementById('status-text').innerText = 'Drive Connected';
+                    document.getElementById('auth-btn').style.display = 'none';
+                },
+            });
+        }
+        window.onload = gapiStart;
+
+        function handleAuthClick() {
+            tokenClient.requestAccessToken({prompt: 'consent'});
+        }
+
+        // --- INVOICE LOGIC ---
+        document.getElementById('dateInput').valueAsDate = new Date();
+
+        function addRow() {
+            const tbody = document.getElementById('invoice-body');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="text" class="table-input" value="${tbody.rows.length + 1}"></td>
+                <td style="position: relative;">
+                    <div class="row-action"><button class="btn-rm" onclick="this.closest('tr').remove(); calculate();">×</button></div>
+                    <input type="text" class="table-input text-left">
+                </td>
+                <td><input type="number" class="table-input qty" oninput="calculate()"></td>
+                <td><input type="text" class="table-input"></td>
+                <td><input type="number" class="table-input rate" oninput="calculate()"></td>
+                <td><input type="text" class="table-input amount" readonly></td>
+            `;
+            tbody.appendChild(row);
+        }
+
+        function calculate() {
+            let total = 0;
+            document.querySelectorAll('#invoice-body tr').forEach(row => {
+                const q = parseFloat(row.querySelector('.qty').value) || 0;
+                const r = parseFloat(row.querySelector('.rate').value) || 0;
+                const amt = q * r;
+                row.querySelector('.amount').value = amt > 0 ? amt.toFixed(2) : "";
+                total += amt;
+            });
+            document.getElementById('grand-total').value = total.toFixed(2);
+        }
+
+        // --- DOWNLOAD & SYNC ---
+        async function exportAndSync() {
+            const element = document.getElementById('invoice-page');
+            const billNo = document.getElementById('billNo').value;
+            const customer = document.getElementById('customerName').value || 'Unknown';
+            const fileName = `Bill_${billNo}_${customer}.pdf`;
+
+            // Hide UI elements from PDF
+            document.querySelectorAll('.row-action').forEach(el => el.classList.add('no-export'));
+
+            const opt = {
+                margin: 0,
+                filename: fileName,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 3 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            try {
+                // 1. Generate PDF Blob
+                const pdfBlob = await html2pdf().set(opt).from(element).output('blob');
+                
+                // 2. Local Download
+                const url = URL.createObjectURL(pdfBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                a.click();
+
+                // 3. Drive Sync
+                if (accessToken) {
+                    await uploadToDrive(pdfBlob, fileName);
+                    alert('Saved locally and synced to Google Drive!');
+                } else {
+                    alert('Saved locally. Connect Google Drive for automatic sync.');
+                }
+            } finally {
+                document.querySelectorAll('.row-action').forEach(el => el.classList.remove('no-export'));
+            }
+        }
+
+        async function uploadToDrive(blob, fileName) {
+            const metadata = { name: fileName, mimeType: 'application/pdf' };
+            const form = new FormData();
+            form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+            form.append('file', blob);
+
+            return fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                method: 'POST',
+                headers: new Headers({ 'Authorization': 'Bearer ' + accessToken }),
+                body: form
+            });
+        }
+    </script>
+</body>
+</html>
