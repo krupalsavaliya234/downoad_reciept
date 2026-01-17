@@ -11,12 +11,12 @@ const PORT = 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(__dirname)); // Serve static files (HTML, CSS, JS)
+// app.use(express.static(process.cwd())); // WARNING: This can expose source files. Better to move public assets to a 'public' folder.
 const ExcelJS = require('exceljs');
 
 // Serve the frontend file on root
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'home.html'));
+    res.sendFile(path.join(process.cwd(), 'home.html'));
 });
 
 // MongoDB Connection
