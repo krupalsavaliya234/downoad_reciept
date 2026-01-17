@@ -34,7 +34,7 @@ app.get('/', (req, res) => {
 });
 
 // MongoDB Connection
-const mongoURI = process.env.MONGO_URI;
+const mongoURI = "mongodb+srv://vekariyakevin4_db_user:1GWr1hPXxA4RSDPH@1.qbicpbd.mongodb.net/?appName=1";
 mongoose.connect(mongoURI, {
     useNewUrlParser: true,
     useUnifiedTopology: true
