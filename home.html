@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kailash Industries - Invoice</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        :root {
+            --theme-blue: #0070c0;
+            /* Adjust based on image */
+            --border-color: #0070c0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Toolbar (Hidden in PDF) */
+        .toolbar {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            background: #fff;
+            padding: 10px;
+            border-radius: 6px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+        }
+
+        .btn {
+            padding: 8px 14px;
+            background: var(--theme-blue);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background: #005a9e;
+        }
+
+        /* Invoice A4 Page - Enforce Single Page */
+        #invoice-page {
+            width: 210mm;
+            height: 296mm;
+            /* Exact A4 Height */
+            background: #fff;
+            padding: 10mm;
+            box-sizing: border-box;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            color: var(--theme-blue);
+            border: 1px solid #ddd;
+            position: relative;
+            overflow: hidden;
+            /* Prevent 2nd page creation */
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 5px;
+        }
+
+        .company-name {
+            font-size: 32pt;
+            font-weight: 900;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--theme-blue);
+        }
+
+        .sub-text {
+            font-size: 11pt;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .address {
+            font-size: 10pt;
+            margin-top: 5px;
+            color: var(--theme-blue);
+            line-height: 1.3;
+        }
+
+        /* Info Row */
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            border-bottom: 2px solid var(--theme-blue);
+            padding-bottom: 5px;
+            align-items: flex-end;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: baseline;
+            gap: 5px;
+        }
+
+        .input-line {
+            border: none;
+            border-bottom: 1px dotted #333;
+            color: #333;
+            font-size: 11pt;
+            width: 150px;
+            outline: none;
+            padding-left: 5px;
+        }
+
+        .input-line.red {
+            color: red;
+            font-weight: bold;
+            font-size: 14pt;
+            width: 80px;
+        }
+
+        /* Customer Row */
+        .customer-row {
+            margin-top: 10px;
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            border: 1px solid var(--theme-blue);
+            padding: 5px;
+        }
+
+        .customer-input {
+            flex-grow: 1;
+            border: none;
+            border-bottom: 1px dotted var(--theme-blue);
+            font-size: 12pt;
+            outline: none;
+            color: #000;
+        }
+
+        /* Table */
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 5px;
+            border: 2px solid var(--theme-blue);
+        }
+
+        .invoice-table th,
+        .invoice-table td {
+            border: 1px solid var(--theme-blue);
+            padding: 2px;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .invoice-table th {
+            background: var(--theme-blue);
+            color: white;
+            font-weight: bold;
+            padding: 6px;
+            font-size: 11pt;
+        }
+
+        .col-no {
+            width: 40px;
+        }
+
+        .col-desc {
+            text-align: left;
+        }
+
+        .col-qty {
+            width: 60px;
+        }
+
+        .col-chal {
+            width: 80px;
+        }
+
+        .col-rate {
+            width: 80px;
+        }
+
+        .col-amt {
+            width: 100px;
+        }
+
+        /* Input inside table */
+        .tbl-input {
+            width: 100%;
+            border: none;
+            outline: none;
+            text-align: center;
+            font-size: 11pt;
+            background: transparent;
+            font-family: inherit;
+        }
+
+        .tbl-input.desc {
+            text-align: left;
+            padding-left: 5px;
+        }
+
+        /* Footer */
+        .footer-row {
+            position: absolute;
+            bottom: 20mm;
+            left: 10mm;
+            right: 10mm;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .sign-box {
+            text-align: center;
+            min-width: 150px;
+            font-size: 10pt;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .toolbar {
+                display: none;
+            }
+
+            #invoice-page {
+                margin: 0;
+                border: none;
+                box-shadow: none;
+            }
+        }
+
+        /* ... existing CSS ... */
+
+        /* Listing & Details */
+        .view-section {
+            width: 100%;
+            max-width: 1000px;
+            /* Responsive width */
+            background: #fff;
+            padding: 20px;
+            box-sizing: border-box;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: none;
+            /* Hidden by default */
+            min-height: auto;
+            border-radius: 8px;
+        }
+
+        .btn-nav {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            padding: 8px 14px;
+            background: var(--theme-blue);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 1000;
+            text-decoration: none;
+            display: inline-block;
+            font-family: Arial, sans-serif;
+        }
+
+        .btn-nav:hover {
+            background: #005a9e;
+        }
+
+        .listing-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .listing-table th,
+        .listing-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .listing-table th {
+            background-color: var(--theme-blue);
+            color: white;
+        }
+
+        .listing-table tr:hover {
+            background-color: #f5f5f5;
+            cursor: pointer;
+        }
+
+        .details-row {
+            margin-bottom: 10px;
+            font-size: 14pt;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Scaling Container */
+        #scale-wrapper {
+            width: 100%;
+            overflow: hidden;
+            /* Prevent horizontal scroll */
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        #invoice-page {
+            transform-origin: top center;
+            flex-shrink: 0;
+            /* Prevent flex squishing */
+        }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 800px) {
+            body {
+                padding: 5px;
+            }
+
+            /* Make toolbar flow naturally */
+            .toolbar {
+                position: relative;
+                width: 100%;
+                margin-bottom: 10px;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+
+            /* Nav Button: Remove fixed positioning */
+            .btn-nav {
+                position: relative;
+                /* Override fixed */
+                top: auto;
+                left: auto;
+                width: 100%;
+                text-align: center;
+                margin-bottom: 10px;
+                display: block;
+            }
+
+            /* Adjust Header size */
+            .company-name {
+                font-size: 24pt;
+            }
+
+            /* Listing Table Responsive */
+            .listing-table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+                width: 100%;
+            }
+
+            .view-section {
+                padding: 10px;
+            }
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 300px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .modal-input {
+            margin: 10px 0;
+            padding: 8px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        }
+    </style>
+</head>
+
+<body>
+    <button class="btn-nav" id="main-nav-btn" onclick="toggleMainView()">View Invoices</button>
+
+    <div id="create-section">
+        <div class="toolbar" data-html2canvas-ignore="true">
+            <span id="status-text" style="align-self:center;color:#333;">Ready</span>
+            <button class="btn" onclick="exportAndSync()">Download & Save</button>
+        </div>
+
+        <!-- Wrapper for Scaling -->
+        <div id="scale-wrapper">
+            <div id="invoice-page">
+                <!-- Header -->
+                <div class="header">
+                    <h1 class="company-name">Kailash Industries</h1>
+                    <div class="sub-text">(CNC Job Work)</div>
+                    <div class="address">
+                        Parmeshwar Industries Area, Seri No.5, Atika Dhebar Road(south)<br>
+                        Rajkot(Guj.) India Mo. 97233 51323
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="info-row">
+                    <div class="input-group">
+                        <label style="font-weight:bold;">Bill No.:</label>
+                        <input type="text" id="billNo" class="input-line red" value="...">
+                    </div>
+                    <div class="input-group">
+                        <label style="font-weight:bold;">Date:</label>
+                        <input type="date" id="dateInput" class="input-line">
+                    </div>
+                </div>
+
+                <div class="customer-row">
+                    <label style="font-weight:bold; white-space: nowrap;">M/s.:</label>
+                    <input type="text" id="customerName" class="customer-input">
+                </div>
+
+                <!-- Table -->
+                <table class="invoice-table">
+                    <thead>
+                        <tr>
+                            <th class="col-no">No</th>
+                            <th class="col-desc">Particulars</th>
+                            <th class="col-qty">Qty.</th>
+                            <th class="col-chal">Chal.no.</th>
+                            <th class="col-rate">Rate</th>
+                            <th class="col-amt">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body"></tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="5"
+                                style="text-align:right; font-weight:bold; padding-right:10px; border-right: none;">
+                                Total
+                            </td>
+                            <td style="font-weight:bold;" id="grandTotal">0.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <!-- Footer -->
+                <div class="footer-row">
+                    <div class="sign-box">
+                        <div style="margin-bottom: 5px;">Receiver's Sign</div>
+                        <div style="border-top:1px solid var(--theme-blue); width: 100%;"></div>
+                    </div>
+                    <div class="sign-box">
+                        <div style="font-size:9pt; margin-bottom: 40px; text-align: right;">For : Kailash Industries
+                        </div>
+                        <div style="border-top:1px solid var(--theme-blue); width: 100%;"></div>
+                        <div style="margin-top: 5px; text-align: center;">Authorised Signatory</div>
+                    </div>
+                </div>
+            </div>
+        </div> <!-- End scale-wrapper -->
+    </div> <!-- End create-section -->
+
+    <!-- Listing Section -->
+    <div id="listing-section" class="view-section">
+        <div class="header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h1 class="company-name">Invoices</h1>
+            <button class="btn" onclick="showExportModal()">Export Excel</button>
+        </div>
+        <button class="btn" onclick="showCreate()" style="margin-bottom: 20px;">Back to Create</button>
+        <table class="listing-table">
+            <thead>
+                <tr>
+                    <th>Bill No</th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody id="listing-body"></tbody>
+        </table>
+    </div>
+
+    <!-- Details Section -->
+    <div id="details-section" class="view-section">
+        <button class="btn" onclick="showListing()" style="margin-bottom: 20px;">Back to List</button>
+        <div id="details-content"></div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="exportModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeExportModal()">&times;</span>
+            <h2>Export to Excel</h2>
+            <label>Start Date:</label>
+            <input type="date" id="startDate" class="modal-input">
+            <label>End Date:</label>
+            <input type="date" id="endDate" class="modal-input">
+            <button class="btn" onclick="downloadExcel()">Download</button>
+        </div>
+    </div>
+
+    <script>
+        // 1. Initialize Date
+        document.getElementById('dateInput').valueAsDate = new Date();
+
+        // 2. Fetch Next Bill Number
+        fetch('/api/next-bill-no')
+            .then(res => res.json())
+            .then(data => {
+                if (data.nextBillNo) {
+                    document.getElementById('billNo').value = data.nextBillNo;
+                } else {
+                    document.getElementById('billNo').value = "101";
+                }
+            })
+            .catch(err => {
+                console.error("Error fetching bill no:", err);
+                document.getElementById('billNo').value = "101"; // Fallback
+            });
+
+        // 3. Generate Table Rows
+        const tbody = document.getElementById('table-body');
+        const ROWS_COUNT = 15;
+
+        for (let i = 1; i <= ROWS_COUNT; i++) {
+            const tr = document.createElement('tr');
+            const height = '28px'; // Slightly smaller to ensure fit
+            tr.innerHTML = `
+    <td style="height:${height}">${i}</td>
+    <td style="height:${height}"><input type="text" class="tbl-input desc"></td>
+    <td style="height:${height}"><input type="number" class="tbl-input qty" oninput="calculateRow(this)"></td>
+    <td style="height:${height}"><input type="text" class="tbl-input"></td>
+    <td style="height:${height}"><input type="number" class="tbl-input rate" oninput="calculateRow(this)"></td>
+    <td style="height:${height}"><input type="number" class="tbl-input amt" readonly></td>
+  `;
+            tbody.appendChild(tr);
+        }
+
+        // 4. Calculation Logic
+        function calculateRow(element) {
+            const row = element.closest('tr');
+            const qty = parseFloat(row.querySelector('.qty').value) || 0;
+            const rate = parseFloat(row.querySelector('.rate').value) || 0;
+            const amtField = row.querySelector('.amt');
+
+            const amount = qty * rate;
+            amtField.value = amount > 0 ? amount.toFixed(2) : '';
+
+            calculateTotal();
+        }
+
+        function calculateTotal() {
+            let total = 0;
+            document.querySelectorAll('.amt').forEach(input => {
+                total += parseFloat(input.value) || 0;
+            });
+            document.getElementById('grandTotal').innerText = total.toFixed(2);
+        }
+
+        // 5. PDF & Sync
+        async function exportAndSync() {
+            const billNo = document.getElementById("billNo").value;
+            const customer = document.getElementById("customerName").value || "Cash";
+            const fileName = `Bill_${billNo}_${customer.replace(/\s+/g, '_')}.pdf`;
+            const total = document.getElementById("grandTotal").innerText;
+
+            const statusText = document.getElementById("status-text");
+            statusText.innerText = "Generating PDF...";
+
+            // Adjusted options for Single Page
+            const opt = {
+                margin: 0,
+                filename: fileName,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            try {
+                const element = document.getElementById("invoice-page");
+                const worker = html2pdf().set(opt).from(element);
+                const pdfBlob = await worker.output("blob");
+
+                statusText.innerText = "Uploading...";
+                const formData = new FormData();
+                formData.append("billNo", billNo);
+                formData.append("customerName", customer);
+                formData.append("total", total);
+                formData.append("pdf", pdfBlob, fileName);
+
+                const response = await fetch("/api/invoices", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (response.ok) {
+                    statusText.innerText = "Saved!";
+                    worker.save();
+                    alert("✅ Saved to Database & Downloaded!");
+
+                    // Refresh Bill No for next one? Optional.
+                    location.reload();
+                } else {
+                    throw new Error("Server Error");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("❌ Error: " + err.message);
+                statusText.innerText = "Error";
+            }
+        }
+
+        // 6. Listing & Details Logic
+        const createSection = document.getElementById('create-section');
+        const listingSection = document.getElementById('listing-section');
+        const detailsSection = document.getElementById('details-section');
+        const navBtn = document.getElementById('main-nav-btn');
+
+        function showCreate() {
+            createSection.style.display = 'block';
+            listingSection.style.display = 'none';
+            detailsSection.style.display = 'none';
+            navBtn.innerText = "View Invoices";
+            navBtn.onclick = showListing;
+        }
+
+        async function showListing() {
+            createSection.style.display = 'none';
+            listingSection.style.display = 'block';
+            detailsSection.style.display = 'none';
+            navBtn.innerText = "Create Invoice";
+            navBtn.onclick = showCreate;
+
+            // Fetch Data
+            try {
+                const res = await fetch('/api/invoices');
+                const invoices = await res.json();
+                const tbody = document.getElementById('listing-body');
+                tbody.innerHTML = '';
+                invoices.forEach(inv => {
+                    const tr = document.createElement('tr');
+                    tr.onclick = () => showDetails(inv._id);
+                    tr.innerHTML = `
+                    <td>${inv.billNo}</td>
+                    <td>${new Date(inv.date).toLocaleDateString()}</td>
+                    <td>${inv.customerName || 'Cash'}</td>
+                    <td>${inv.total}</td>
+                `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error("Failed to load invoices", err);
+            }
+        }
+
+        function toggleMainView() {
+            if (createSection.style.display !== 'none') {
+                showListing();
+            } else {
+                showCreate();
+            }
+        }
+
+        async function showDetails(id) {
+            listingSection.style.display = 'none';
+            detailsSection.style.display = 'block';
+
+            try {
+                const res = await fetch(`/api/invoices/${id}`);
+                const inv = await res.json();
+
+                // Render Details
+                const content = document.getElementById('details-content');
+                content.innerHTML = `
+                <div class="header">
+                    <h1 class="company-name">Invoice #${inv.billNo}</h1>
+                </div>
+                <div class="details-row"><strong>Customer:</strong> ${inv.customerName}</div>
+                <div class="details-row"><strong>Date:</strong> ${new Date(inv.date).toLocaleDateString()}</div>
+                <div class="details-row"><strong>Total:</strong> ${inv.total}</div>
+                <div style="margin-top:20px;">
+                    <a href="/api/invoices/${id}/pdf" target="_blank" class="btn">Download PDF</a>
+                </div>
+             `;
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+
+        // 8. Excel Export Logic
+        const modal = document.getElementById("exportModal");
+
+        function showExportModal() {
+            modal.style.display = "block";
+            // Set default dates (Current Month)
+            const date = new Date();
+            const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+            const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+            document.getElementById('startDate').valueAsDate = firstDay;
+            document.getElementById('endDate').valueAsDate = lastDay;
+        }
+
+        function closeExportModal() {
+            modal.style.display = "none";
+        }
+
+        window.onclick = function (event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        async function downloadExcel() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            if (!startDate || !endDate) {
+                alert("Please select both start and end dates.");
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/export-excel', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ startDate, endDate })
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `Invoices_${startDate}_to_${endDate}.xlsx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    closeExportModal();
+                } else {
+                    alert("Failed to export invoices.");
+                }
+            } catch (error) {
+                console.error("Export error:", error);
+                alert("Error trying to export.");
+            }
+        }
+
+
+        // 7. Auto-Scale Logic for Mobile
+        function scaleInvoice() {
+            const wrapper = document.getElementById('scale-wrapper');
+            const invoicePage = document.getElementById('invoice-page'); // Start from 328
+            // Need to ensure wrapper exists
+            if (!wrapper) return;
+
+            const screenWidth = window.innerWidth;
+
+            // 210mm approx 794px at 96dpi, plus padding
+            const requiredWidth = 840; // 794 + margins
+
+            if (screenWidth < requiredWidth) {
+                const scale = (screenWidth - 20) / requiredWidth; // -20 for padding
+                wrapper.style.transform = `scale(${scale})`;
+                wrapper.style.height = `${(296 * 3.78 * scale)}px`; // Adjust container height
+            } else {
+                wrapper.style.transform = 'scale(1)';
+                wrapper.style.height = 'auto';
+            }
+        }
+
+        window.addEventListener('resize', scaleInvoice);
+        window.addEventListener('load', scaleInvoice);
+    </script>
+
+</body>
+
+</html>

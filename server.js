@@ -12,10 +12,11 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname)); // Serve static files (HTML, CSS, JS)
+const ExcelJS = require('exceljs');
 
 // Serve the frontend file on root
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'kevin.html'));
+    res.sendFile(path.join(__dirname, 'home.html'));
 });
 
 // MongoDB Connection
@@ -93,6 +94,51 @@ app.get('/api/invoices/:id/pdf', async (req, res) => {
         res.send(invoice.pdfFile.data);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch PDF' });
+    }
+});
+
+// API Endpoint to export invoices to Excel
+app.post('/api/export-excel', async (req, res) => {
+    try {
+        const { startDate, endDate } = req.body;
+
+        // Filter invoices by date range
+        // Note: endDate should be inclusive, so we set it to end of day
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+
+        const invoices = await Invoice.find({
+            date: { $gte: start, $lte: end }
+        }).sort({ date: 1 });
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Invoices');
+
+        worksheet.columns = [
+            { header: 'Bill No', key: 'billNo', width: 10 },
+            { header: 'Date', key: 'date', width: 15 },
+            { header: 'Customer Name', key: 'customerName', width: 30 },
+            { header: 'Total', key: 'total', width: 15 }
+        ];
+
+        invoices.forEach(inv => {
+            worksheet.addRow({
+                billNo: inv.billNo,
+                date: new Date(inv.date).toLocaleDateString(),
+                customerName: inv.customerName,
+                total: inv.total
+            });
+        });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=invoices.xlsx');
+
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (error) {
+        console.error('Error exporting excel:', error);
+        res.status(500).json({ error: 'Failed to export excel' });
     }
 });
 
