@@ -15,8 +15,22 @@ app.use(express.json());
 const ExcelJS = require('exceljs');
 
 // Serve the frontend file on root
+// Serve the frontend file on root
 app.get('/', (req, res) => {
-    res.sendFile(path.join(process.cwd(), 'home.html'));
+    // Vercel path adjustment: 'home.html' is in the project root
+    // api/index.js imports this, but __dirname might vary. 
+    // process.cwd() is usually safer for Vercel serverless.
+
+    // Using fs.readFileSync for maximum reliability on Vercel
+    const fs = require('fs');
+    try {
+        const indexPath = path.join(process.cwd(), 'home.html');
+        const content = fs.readFileSync(indexPath, 'utf8');
+        res.send(content);
+    } catch (err) {
+        console.error('Error serving home.html:', err);
+        res.status(500).send('Error loading application: ' + err.message);
+    }
 });
 
 // MongoDB Connection
