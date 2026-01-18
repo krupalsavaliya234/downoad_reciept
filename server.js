@@ -10,6 +10,7 @@ const PORT = 3000;
 
 // Middleware
 app.use(cors());
+app.options('*', cors()); // Enable pre-flight for all routes
 app.use(express.json());
 // app.use(express.static(process.cwd())); // WARNING: This can expose source files. Better to move public assets to a 'public' folder.
 const ExcelJS = require('exceljs');
@@ -34,13 +35,20 @@ app.get('/', (req, res) => {
 });
 
 // MongoDB Connection
+// MongoDB Connection
 const mongoURI = process.env.MONGODB_URI || "mongodb+srv://vekariyakevin4_db_user:1GWr1hPXxA4RSDPH@1.qbicpbd.mongodb.net/?appName=1";
-mongoose.connect(mongoURI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-})
-    .then(() => console.log('✅ Connected to MongoDB'))
-    .catch(err => console.error('❌ MongoDB connection error:', err));
+
+// Improved Serverless Connection Reuse
+if (mongoose.connection.readyState === 0) {
+    mongoose.connect(mongoURI, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true
+    })
+        .then(() => console.log('✅ Connected to MongoDB (New Connection)'))
+        .catch(err => console.error('❌ MongoDB connection error:', err));
+} else {
+    console.log('♻️ Reusing existing MongoDB connection');
+}
 
 // Schema Definition
 const invoiceSchema = new mongoose.Schema({
