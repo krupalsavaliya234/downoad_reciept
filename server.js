@@ -60,10 +60,11 @@ const Invoice = mongoose.model('Invoice', invoiceSchema);
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-
+// --- API ROUTER ---
+const router = express.Router();
 
 // API Endpoint to get next bill number
-app.get('/api/next-bill-no', async (req, res) => {
+router.get('/next-bill-no', async (req, res) => {
     try {
         const lastInvoice = await Invoice.findOne().sort({ billNo: -1 });
         const nextBillNo = lastInvoice ? lastInvoice.billNo + 1 : 101; // Start from 101
@@ -75,7 +76,7 @@ app.get('/api/next-bill-no', async (req, res) => {
 });
 
 // API Endpoint to get all invoices (without PDF data)
-app.get('/api/invoices', async (req, res) => {
+router.get('/invoices', async (req, res) => {
     try {
         const invoices = await Invoice.find({}, '-pdfFile').sort({ date: -1 });
         res.json(invoices);
@@ -86,7 +87,7 @@ app.get('/api/invoices', async (req, res) => {
 });
 
 // API Endpoint to get a single invoice
-app.get('/api/invoices/:id', async (req, res) => {
+router.get('/invoices/:id', async (req, res) => {
     try {
         const invoice = await Invoice.findById(req.params.id, '-pdfFile.data');
         if (!invoice) {
@@ -100,7 +101,7 @@ app.get('/api/invoices/:id', async (req, res) => {
 });
 
 // API Endpoint to get PDF of an invoice
-app.get('/api/invoices/:id/pdf', async (req, res) => {
+router.get('/invoices/:id/pdf', async (req, res) => {
     try {
         const invoice = await Invoice.findById(req.params.id);
         if (!invoice || !invoice.pdfFile) {
@@ -116,12 +117,10 @@ app.get('/api/invoices/:id/pdf', async (req, res) => {
 });
 
 // API Endpoint to export invoices to Excel
-app.post('/api/export-excel', async (req, res) => {
+router.post('/export-excel', async (req, res) => {
     try {
         const { startDate, endDate } = req.body;
 
-        // Filter invoices by date range
-        // Note: endDate should be inclusive, so we set it to end of day
         const start = new Date(startDate);
         const end = new Date(endDate);
         end.setHours(23, 59, 59, 999);
@@ -161,7 +160,7 @@ app.post('/api/export-excel', async (req, res) => {
 });
 
 // API Endpoint to save invoice
-app.post('/api/invoices', upload.single('pdf'), async (req, res) => {
+router.post('/invoices', upload.single('pdf'), async (req, res) => {
     try {
         const { billNo, customerName, total } = req.body;
 
@@ -188,6 +187,16 @@ app.post('/api/invoices', upload.single('pdf'), async (req, res) => {
     }
 });
 
+// Mount Router
+app.use('/api', router);
+app.use('/.netlify/functions/api', router); // Ensure Netlify function path matches
+
+// Catch-all 404 Handler
+app.use((req, res) => {
+    console.log(`404 Not Found: ${req.method} ${req.originalUrl}`);
+    res.status(404).json({ error: 'Not Found', path: req.originalUrl });
+});
+
 // Start Server
 if (require.main === module) {
     app.listen(PORT, () => {
@@ -196,3 +205,4 @@ if (require.main === module) {
 }
 
 module.exports = app;
+
