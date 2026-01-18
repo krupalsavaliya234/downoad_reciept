@@ -34,7 +34,7 @@ app.get('/', (req, res) => {
 });
 
 // MongoDB Connection
-const mongoURI = "mongodb+srv://vekariyakevin4_db_user:1GWr1hPXxA4RSDPH@1.qbicpbd.mongodb.net/?appName=1";
+const mongoURI = process.env.MONGODB_URI || "mongodb+srv://vekariyakevin4_db_user:1GWr1hPXxA4RSDPH@1.qbicpbd.mongodb.net/?appName=1";
 mongoose.connect(mongoURI, {
     useNewUrlParser: true,
     useUnifiedTopology: true
@@ -69,6 +69,7 @@ app.get('/api/next-bill-no', async (req, res) => {
         const nextBillNo = lastInvoice ? lastInvoice.billNo + 1 : 101; // Start from 101
         res.json({ nextBillNo });
     } catch (error) {
+        console.error('Error fetching next bill number:', error);
         res.status(500).json({ error: 'Failed to fetch bill number' });
     }
 });
@@ -79,7 +80,8 @@ app.get('/api/invoices', async (req, res) => {
         const invoices = await Invoice.find({}, '-pdfFile').sort({ date: -1 });
         res.json(invoices);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch invoices' });
+        console.error('Error fetching invoices:', error);
+        res.status(500).json({ error: 'Failed to fetch invoices', details: error.message });
     }
 });
 
@@ -92,6 +94,7 @@ app.get('/api/invoices/:id', async (req, res) => {
         }
         res.json(invoice);
     } catch (error) {
+        console.error('Error fetching invoice:', error);
         res.status(500).json({ error: 'Failed to fetch invoice' });
     }
 });
@@ -107,6 +110,7 @@ app.get('/api/invoices/:id/pdf', async (req, res) => {
         res.set('Content-Type', invoice.pdfFile.contentType);
         res.send(invoice.pdfFile.data);
     } catch (error) {
+        console.error('Error fetching invoice PDF:', error);
         res.status(500).json({ error: 'Failed to fetch PDF' });
     }
 });
@@ -180,7 +184,7 @@ app.post('/api/invoices', upload.single('pdf'), async (req, res) => {
         res.status(201).json({ message: 'Invoice saved successfully!' });
     } catch (error) {
         console.error('Error saving invoice:', error);
-        res.status(500).json({ error: 'Failed to save invoice' });
+        res.status(500).json({ error: 'Failed to save invoice', details: error.message });
     }
 });
 
